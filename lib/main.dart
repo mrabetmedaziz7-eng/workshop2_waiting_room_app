@@ -1,8 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:waiting_room_app/waiting_room_manager.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:waiting_room_app/queue_provider.dart';
 
 void main() {
-  runApp(const WaitingRoomApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => QueueProvider(),
+      child: const WaitingRoomApp(),
+    ),
+  );
 }
 
 class WaitingRoomApp extends StatelessWidget {
@@ -16,78 +22,46 @@ class WaitingRoomApp extends StatelessWidget {
   }
 }
 
-class WaitingRoomScreen extends StatefulWidget {
+class WaitingRoomScreen extends StatelessWidget {
   const WaitingRoomScreen({super.key});
 
   @override
-  State<WaitingRoomScreen> createState() => _WaitingRoomScreenState();
-}
-
-// The private _WaitingRoomScreenState class manages the widget's state.
-class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
-  // Our logic manager is now part of the UI state.
-  final WaitingRoomManager _manager = WaitingRoomManager();
-  // This controller manages the text input field's value.
-  final TextEditingController _controller = TextEditingController();
-
-  void _addClient() {
-    if (_controller.text.isNotEmpty) {
-      // We wrap the state change in setState() to tell Flutter to rebuild the UI.
-      setState(() {
-        _manager.addClient(_controller.text);
-        _controller.clear();
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final queueProvider = context.watch<QueueProvider>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Local Waiting Room'),
+        actions: [
+          IconButton(
+            key: const Key('nextClientButton'),
+            icon: const Icon(Icons.skip_next),
+            tooltip: 'Next Client',
+            onPressed: () {
+              context.read<QueueProvider>().nextClient();
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(labelText: 'Client Name'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _addClient,
-                  child: const Text('Add'),
-                ),
-              ],
-            ),
+            const _AddClientForm(),
             const SizedBox(height: 16),
-            // The Text widget dynamically shows the queue length.
-            Text('Clients in Queue: ${_manager.clients.length}'),
+            Text('Clients in Queue: ${queueProvider.clients.length}'),
             Expanded(
               child: ListView.builder(
-                itemCount: _manager.clients.length,
+                itemCount: queueProvider.clients.length,
                 itemBuilder: (context, index) {
-                  final clientName = _manager.clients[index];
+                  final clientName = queueProvider.clients[index];
                   return Card(
                     child: ListTile(
                       title: Text(clientName),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () {
-                          setState(() {
-                            _manager.removeClient(clientName);
-                          });
+                          context.read<QueueProvider>().removeClient(clientName);
                         },
                       ),
                     ),
@@ -98,6 +72,49 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AddClientForm extends StatefulWidget {
+  const _AddClientForm();
+
+  @override
+  State<_AddClientForm> createState() => _AddClientFormState();
+}
+
+class _AddClientFormState extends State<_AddClientForm> {
+  final TextEditingController controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (controller.text.isNotEmpty) {
+      context.read<QueueProvider>().addClient(controller.text);
+      controller.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            decoration: const InputDecoration(labelText: 'Client Name'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton(
+          onPressed: _submit,
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 }
